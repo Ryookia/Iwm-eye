@@ -9,5 +9,6 @@ processor.scale_image(1000, 1000)
 # processor.show_image()
 processor.erase_channel([0, 2])
 processor.to_grey_scale()
+processor.normalize_histogram()
+
 processor.pre_process_image()
-# processor.show_image()
