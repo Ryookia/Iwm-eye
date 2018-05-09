@@ -1,3 +1,5 @@
+import math
+
 import cv2 as cv
 import numpy as np
 from skimage.filters import frangi
@@ -96,50 +98,6 @@ class ImageProcessor:
                         matrix[0][0] += 1
         return matrix
 
-    # idea was to find the eye radius on image to black out unnecessary parts (did not work as intended)
-    def find_radius(self, img):
-        height = img.shape[0]
-        width = img.shape[1]
-        top = 0
-        left = 0
-        right = width
-        bottom = height
-        for i in range(height):
-            if top != 0:
-                break
-            for j in range(width):
-                if img[i][j] > 0.1:
-                    top = i
-
-        for j in range(width):
-            if left != 0:
-                break
-            for i in range(height):
-                if img[i][j] > 0.1:
-                    left = j
-
-        for j in range(width - 1, -1, -1):
-            if right != 0:
-                break
-            for i in range(height):
-                if img[i][j] > 0.1:
-                    right = j
-
-        for i in range(height - 1, 0, -1):
-            if bottom != 0:
-                break
-            for j in range(width):
-                if img[i][j] > 0.1:
-                    bottom = i
-        max_result = height / 2 - top
-        if width / 2 - left > max_result:
-            max_result = width / 2 - left
-        if right - width / 2 > max_result:
-            max_result = right - width / 2
-        if bottom - height / 2 > max_result:
-            max_result = bottom - height / 2
-        return max_result
-
     def sharp_image(self):
         avr = self.get_average_image_size()
         blurred = cv.GaussianBlur(self.image, (0, 0), avr * self.blur)
@@ -153,6 +111,11 @@ class ImageProcessor:
         mask = cv.resize(mask, (self.image.shape[1], self.image.shape[0]))
         return mask
 
+    def get_gabor_features(self):
+        kernel = cv.getGaborKernel((11, 11), 2, math.pi / 4, 4.0, 0.6, 2)
+        result = cv.filter2D(self.image, 32, kernel)
+        self.show_given_image(result)
+
     @staticmethod
     def mask_image(image, mask):
         for i in range(image.shape[0]):
@@ -161,72 +124,19 @@ class ImageProcessor:
                     image[i][j] = 0
         return image
 
-
     def pre_process_image(self):
-
-        ## self.image = cv.split(self.image)
-        ## self.image = self.image[1]
-
         self.sharp_image()
-
-        # self.image = filters.median(self.image, disk(self.median_value))
-        # self.image = filters.gaussian(self.image, sigma=self.gaussian_sigma)
-
-
-
+        self.erase_channel([0, 2])
+        self.to_grey_scale()
+        self.normalize_histogram()
         ## self.image = morphology.erosion(self.image, disk(4))
         ## self.image = morphology.dilation(self.image, disk(2))
 
         self.image = self.normalize(self.image) * 255
         self.image = self.image.astype(np.uint8)
-        # self.image = self.invert_image(self.image)
-
-        # hxx, hyy, hxy = hessian_matrix(self.image, 3.0, order="xy")
-        # i1, i2 = hessian_matrix_eigvals(hxx, hxy, hyy)
-        #
-        # i1 = self.normalize(i1)
-        # i2 = self.normalize(i2)
-        #
-        # i3 = i1 - i2
-        # i3 = self.normalize(i3)
-        #
-        # self.expert_image = self.normalize(self.expert_image)
-        # self.expert_image = self.to_binary_image(self.expert_image, 0.5)
-        # result_matrix = self.compare_images(i3, self.expert_image)
-        # accuracy = self.get_accuracy(result_matrix)
-        # sensitivity = self.get_sensitivity(result_matrix)
-        # specificity = self.get_specificity(result_matrix)
-        #
-        # # i1 = self.to_binary_image(i1, 0.5)
-        # # i2 = self.to_binary_image(i2, 0.5)
-        # # i3 = self.to_binary_image(i3, 0.3)
-        #
-        # cv.imshow("i1", i1)
-        # cv.waitKey(0)
-        # cv.imshow("i1", i2)
-        # cv.waitKey(0)
-        #
-        # # i3 = morphology.dilation(i3, disk(self.dilation_value))
-        # # i3 = morphology.erosion(i3, disk(self.erosion_value))
-        #
-        # cv.imshow("i1", self.image)
-        # cv.waitKey(0)
-        # self.image = self.image / 255
-        #
-        # cv.imshow("i1", self.image)
-        # cv.waitKey(0)
 
         post_image = frangi(self.image, scale_range=(2, 5), beta1=0.1, beta2=1) * 255
         # post_image = self.normalize(post_image) * 255
-
-        # #thresh = morphology.dilation(thresh, disk(self.dila# tion_value))
-
-        # post_image = morphology.erosion(post_image, disk(int(average_size * self.erosion_value)))
-        # cv.imshow("i1", thresh)
-        # cv.waitKey(0)
-        # cv.imshow("i1", self.expert_image)
-        # cv.waitKey(0)
-        # # self.image = cv.Canny(self.image, 0, 20)
 
         return post_image
 
