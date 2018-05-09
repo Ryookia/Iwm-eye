@@ -1,8 +1,6 @@
 import cv2 as cv
 import numpy as np
-from skimage import filters
 from skimage.filters import frangi
-from skimage.morphology import disk
 
 
 class ImageProcessor:
@@ -10,6 +8,7 @@ class ImageProcessor:
     image = None
     expert_image = None
     gaussian_sigma = 2
+    blur = 0.05
     median_value = 5
     dilation_value = 0.01
     erosion_value = 0.007
@@ -141,14 +140,39 @@ class ImageProcessor:
             max_result = bottom - height / 2
         return max_result
 
+    def sharp_image(self):
+        avr = self.get_average_image_size()
+        blurred = cv.GaussianBlur(self.image, (0, 0), avr * self.blur)
+        cv.addWeighted(self.image, 1.5, blurred, -0.5, 0, self.image)
+
+    def get_average_image_size(self):
+        return (self.image.shape[0] + self.image.shape[1]) / 2
+
+    def get_mask(self, file_path):
+        mask = cv.imread(file_path, cv.IMREAD_GRAYSCALE)
+        mask = cv.resize(mask, (self.image.shape[1], self.image.shape[0]))
+        return mask
+
+    @staticmethod
+    def mask_image(image, mask):
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                if mask[i][j] == 0:
+                    image[i][j] = 0
+        return image
+
 
     def pre_process_image(self):
-        average_size = (self.image.shape[0] + self.image.shape[1]) / 2
+
         ## self.image = cv.split(self.image)
         ## self.image = self.image[1]
 
-        self.image = filters.median(self.image, disk(self.median_value))
-        self.image = filters.gaussian(self.image, sigma=self.gaussian_sigma)
+        self.sharp_image()
+
+        # self.image = filters.median(self.image, disk(self.median_value))
+        # self.image = filters.gaussian(self.image, sigma=self.gaussian_sigma)
+
+
 
         ## self.image = morphology.erosion(self.image, disk(4))
         ## self.image = morphology.dilation(self.image, disk(2))

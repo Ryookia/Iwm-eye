@@ -9,7 +9,7 @@ from sklearn.neural_network import MLPClassifier
 class Learner:
 
     @staticmethod
-    def get_random_hu_moments(img, expert_image, box_size=15):
+    def get_random_hu_moments(img, expert_image, box_size=5):
         height = expert_image.shape[0]
         width = expert_image.shape[1]
         point = (random.randrange(box_size, height - box_size), random.randrange(box_size, width - box_size))
