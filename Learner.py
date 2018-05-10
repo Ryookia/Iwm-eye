@@ -5,21 +5,19 @@ import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.neural_network import MLPClassifier
 
+from ImageProcessor import ImageProcessor
+
 
 class Learner:
 
     @staticmethod
     def get_features(img, expert_image, box_size=49):
-        height = expert_image.shape[0]
-        width = expert_image.shape[1]
+        height = img.shape[0]
+        width = img.shape[1]
         box_range = int(box_size / 2)
         point = (random.randrange(box_range, height - box_range), random.randrange(box_range, width - box_range))
+        cut_image = ImageProcessor.crop_image(img, point, box_size)
 
-        h_st = point[0] - box_range
-        h_en = point[0] + box_range + 1
-        w_st = point[1] - box_range
-        w_en = point[1] + box_range + 1
-        cut_image = img[h_st:h_en, w_st:w_en]
         features = cut_image.flatten()
         # features = []
         # moments = cv.moments(cut_image)
@@ -84,11 +82,10 @@ class Learner:
     @staticmethod
     def k_fold(data_array, class_array, k=10):
         folded = KFold(n_splits=k)
-        # folded = LeaveOneOut()
 
         folded.get_n_splits(data_array)
-        matrix = np.zeros((2, 2))
         clf = None
+        accuracy_array = []
         for train, test in folded.split(data_array):
             X_train, X_test = data_array[train], data_array[test]
             y_train, y_test = class_array[train], class_array[test]
@@ -97,7 +94,7 @@ class Learner:
                 clf.fit(X_train, y_train)
             else:
                 clf.fit(X_train, y_train)
-            clf.score(X_test, y_test)
+            accuracy_array.append(clf.score(X_test, y_test))
             # for test_set, test_result in zip(X_test, y_test):
             #
             #     prediction = clf.predict(
@@ -113,7 +110,8 @@ class Learner:
             #             matrix[0][1] += 1
             #         else:
             #             matrix[1][0] += 1
-        return matrix, clf
+
+        return sum(accuracy_array) / len(accuracy_array), clf
 
     @staticmethod
     def get_accuracy(matrix):

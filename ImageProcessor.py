@@ -148,3 +148,30 @@ class ImageProcessor:
     def show_given_image(image):
         cv.imshow("Image", image)
         cv.waitKey(0)
+
+    @staticmethod
+    def crop_image(image, point, box_size):
+        height = image.shape[0]
+        width = image.shape[1]
+        box_range = int(box_size / 2)
+        pad_top, pad_left, pad_right, pad_bottom = 0, 0, 0, 0
+        h_st = point[0] - box_range
+        if h_st < 0:
+            pad_top = -h_st
+            h_st = 0
+        h_en = point[0] + box_range + 1
+        if h_en > height - 1:
+            pad_bottom = h_en - (height - 1)
+            h_en = height - 1
+        w_st = point[1] - box_range
+        if w_st < 0:
+            pad_left = -w_st
+            w_st = 0
+        w_en = point[1] + box_range + 1
+        if w_en > width - 1:
+            pad_right = w_en - (width - 1)
+            w_en = width - 1
+        cut_image = image[h_st:h_en, w_st:w_en]
+        if cut_image.shape[0] != box_size or cut_image.shape[1] != box_size:
+            cut_image = cv.copyMakeBorder(cut_image, pad_top, pad_bottom, pad_left, pad_right, cv.BORDER_CONSTANT)
+        return cut_image

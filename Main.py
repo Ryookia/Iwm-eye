@@ -5,8 +5,8 @@ from Learner import Learner
 
 images_path = [("database/images/01_dr.JPG", "database/manual/01_dr.tif", "database/mask/01_dr_mask.tif"),
                ("database/images/02_dr.JPG", "database/manual/02_dr.tif", "database/mask/02_dr_mask.tif"),
-               ("database/images/03_dr.JPG", "database/manual/03_dr.tif", "database/mask/03_dr_mask.tif"),
-               ("database/images/04_dr.JPG", "database/manual/04_dr.tif", "database/mask/04_dr_mask.tif"),
+               # ("database/images/03_dr.JPG", "database/manual/03_dr.tif", "database/mask/03_dr_mask.tif"),
+               # ("database/images/04_dr.JPG", "database/manual/04_dr.tif", "database/mask/04_dr_mask.tif"),
                ("database/images/05_dr.JPG", "database/manual/05_dr.tif", "database/mask/05_dr_mask.tif")]
 
 images_array = []
@@ -45,12 +45,14 @@ print("LEARN")
 clf = Learner.learn(data_array, class_array)
 matrix = np.zeros((2, 2))
 matrix_retard = np.zeros((2, 2))
+
 for image_array in images_array:
     print("Compare Start")
     matrix_retard += ImageProcessor.compare_images(image_array[0], image_array[1])
     # ImageProcessor.show_given_image(image_array[0])
     # ImageProcessor.show_given_image(image_array[1])
     print("Predict")
+
     matrix += Learner.get_predict_matrix(Learner, 10000, image_array[0], image_array[1], clf)
 #
 acc = Learner.get_accuracy(matrix)
