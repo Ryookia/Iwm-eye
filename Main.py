@@ -5,15 +5,17 @@ from Learner import Learner
 
 images_path = [("database/images/01_dr.JPG", "database/manual/01_dr.tif", "database/mask/01_dr_mask.tif"),
                ("database/images/02_dr.JPG", "database/manual/02_dr.tif", "database/mask/02_dr_mask.tif"),
-               # ("database/images/03_dr.JPG", "database/manual/03_dr.tif", "database/mask/03_dr_mask.tif"),
-               # ("database/images/04_dr.JPG", "database/manual/04_dr.tif", "database/mask/04_dr_mask.tif"),
+               ("database/images/03_dr.JPG", "database/manual/03_dr.tif", "database/mask/03_dr_mask.tif"),
+               ("database/images/04_dr.JPG", "database/manual/04_dr.tif", "database/mask/04_dr_mask.tif"),
                ("database/images/05_dr.JPG", "database/manual/05_dr.tif", "database/mask/05_dr_mask.tif")]
 
 images_array = []
 
 data_array = None
 class_array = None
+feature_size = 1
 for image_path in images_path:
+    print("process")
     processor = ImageProcessor()
     processor.load_image(image_path[0], image_path[1])
     processor.scale_image(1000, 1000)
@@ -23,11 +25,11 @@ for image_path in images_path:
     image = ImageProcessor.mask_image(image, mask)
 
     image = ImageProcessor.to_binary_image(image, 0.5)
-
-    images_array.append((image, processor.expert_image, mask))
+    print("copy")
+    images_array.append((image, processor.to_binary_image(processor.expert_image, 0.5), mask))
     # test = processor.get_gabor_features()
-
-    tmp_data, tmp_class = Learner.get_learn_data(Learner, image, processor.expert_image, 2000)
+    print("learn data")
+    tmp_data, tmp_class, feature_size = Learner.get_learn_data(Learner, image, processor.expert_image, 1000)
     if data_array is None:
         data_array = tmp_data
         class_array = tmp_class
@@ -36,17 +38,19 @@ for image_path in images_path:
         class_array = np.append(class_array, tmp_class)
 
 data_array = np.array(data_array)
-data_array = data_array.reshape(int(data_array.shape[0] / 17), 17)
+data_array = data_array.reshape(int(data_array.shape[0] / feature_size), feature_size)
 
 # matrix = Learner.k_fold(data_array, class_array, 2)
+print("LEARN")
 clf = Learner.learn(data_array, class_array)
-
 matrix = np.zeros((2, 2))
 matrix_retard = np.zeros((2, 2))
 for image_array in images_array:
+    print("Compare Start")
     matrix_retard += ImageProcessor.compare_images(image_array[0], image_array[1])
     # ImageProcessor.show_given_image(image_array[0])
     # ImageProcessor.show_given_image(image_array[1])
+    print("Predict")
     matrix += Learner.get_predict_matrix(Learner, 10000, image_array[0], image_array[1], clf)
 #
 acc = Learner.get_accuracy(matrix)

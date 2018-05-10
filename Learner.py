@@ -1,6 +1,6 @@
+import pickle
 import random
 
-import cv2 as cv
 import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.neural_network import MLPClassifier
@@ -9,30 +9,36 @@ from sklearn.neural_network import MLPClassifier
 class Learner:
 
     @staticmethod
-    def get_random_hu_moments(img, expert_image, box_size=5):
+    def get_features(img, expert_image, box_size=49):
         height = expert_image.shape[0]
         width = expert_image.shape[1]
-        point = (random.randrange(box_size, height - box_size), random.randrange(box_size, width - box_size))
         box_range = int(box_size / 2)
+        point = (random.randrange(box_range, height - box_range), random.randrange(box_range, width - box_range))
+
         h_st = point[0] - box_range
         h_en = point[0] + box_range + 1
         w_st = point[1] - box_range
         w_en = point[1] + box_range + 1
         cut_image = img[h_st:h_en, w_st:w_en]
-        moments = cv.moments(cut_image)
-        hu_moments = cv.HuMoments(moments).flatten()
-        moment_list = ["m00", "m01", "m02", "m03", "m10", "m11", "m12", "m20", "m21", "m30"]
-        for moment in moment_list:
-            hu_moments = np.append(hu_moments, [moments[moment]])
+        features = cut_image.flatten()
+        # features = []
+        # moments = cv.moments(cut_image)
+        # hu_moments = cv.HuMoments(moments).flatten()
+        # features = np.append(features, hu_moments)
+        # moment_list = ["m00", "m01", "m02", "m03", "m10", "m11", "m12", "m20", "m21", "m30"]
+        # for moment in moment_list:
+        #     features = np.append(features, [moments[moment]])
+
+        # features = np.append(cut_image.flatten(), features)
         # return expert_image[point[0]][point[1]] > 0, np.append(cut_image.flatten(), hu_moments)
         # return expert_image[point[0]][point[1]] > 0, cut_image.flatten()
-        return expert_image[point[0]][point[1]] > 0, hu_moments
 
+        return expert_image[point[0]][point[1]] > 0, features, len(features)
 
     @staticmethod
     def learn(data_set, class_set):
         clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(200, 8), random_state=1,
-                            learning_rate='adaptive')
+                            learning_rate='constant', learning_rate_init=0.001)
         clf.fit(data_set, class_set)
         return clf
 
@@ -40,8 +46,11 @@ class Learner:
     def get_learn_data(self, image, expert_image, amount):
         data_array = []
         class_array = []
+        feature_size = 1
         for i in range(amount):
-            result = self.get_random_hu_moments(image, expert_image)
+            result = self.get_features(image, expert_image)
+            if i == 0:
+                feature_size = result[2]
             if result[0]:
                 class_array.append(1)
             else:
@@ -50,13 +59,13 @@ class Learner:
             for j in range(len(result[1])):
                 data_array.append(result[1][j])
 
-        return data_array, class_array
+        return data_array, class_array, feature_size
 
     @staticmethod
     def get_predict_matrix(self, amount, image, expert_image, clf):
         matrix = np.zeros((2, 2))
         for i in range(amount):
-            point_moments = self.get_random_hu_moments(image, expert_image)
+            point_moments = self.get_features(image, expert_image)
             prediction = clf.predict(
                 np.array(point_moments[1]).reshape(1, -1)
             )
@@ -117,3 +126,11 @@ class Learner:
     @staticmethod
     def get_specificity(matrix):
         return matrix[1][1] / (matrix[1][1] + matrix[0][1])
+
+    @staticmethod
+    def save_model(file_path, model):
+        pickle.dump(model, open(file_path, 'wb'))
+
+    @staticmethod
+    def load_model(file_path):
+        return pickle.load(open(file_path, 'rb'))
