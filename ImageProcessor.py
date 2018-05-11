@@ -145,9 +145,11 @@ class ImageProcessor:
         cv.waitKey(0)
 
     @staticmethod
-    def show_given_image(image):
-        cv.imshow("Image", image)
-        cv.waitKey(0)
+    def show_given_image(image, text="Image"):
+        if image is None:
+            return
+        cv.imshow(text, image)
+        # cv.waitKey(0)
 
     @staticmethod
     def crop_image(image, point, box_size):

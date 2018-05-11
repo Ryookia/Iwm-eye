@@ -1,14 +1,17 @@
 import os
 
 import PIL.ImageQt
+import numpy as np
 import scipy.misc as scmisc
 from PyQt5 import QtCore
 from PyQt5.QtCore import QThread
+from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtGui import QPixmap
 from PyQt5.QtWidgets import QMainWindow
 from PyQt5.uic import loadUi
 
 from ImageProcessor import ImageProcessor
+from Learner import Learner
 
 false = False
 true = True
@@ -19,6 +22,12 @@ class UI(QMainWindow):
     files = None
     files_expert = None
     files_mask = None
+    listener = None
+    images_array = None
+    average_accuracy = 0
+
+    current_image = None
+    current_expert_image = None
 
     def __init__(self):
         super(UI, self).__init__()
@@ -32,9 +41,39 @@ class UI(QMainWindow):
         self.files_mask.sort()
         self.fileBox.addItems(self.files)
         self.generateButton.clicked.connect(self.generate_image)
+        self.myImageButton.clicked.connect(self.show_my_image)
+        self.expertImageButton.clicked.connect(self.show_expert_image)
+        self.kfoldButton.clicked.connect(self.perform_kfold)
         self.generateBar.setVisible(False)
 
+    def show_my_image(self):
+        if self.current_image is not None:
+            self.processor.show_given_image(self.current_image, "Wytworzony obraz")
+
+    def show_expert_image(self):
+        if self.current_expert_image is not None:
+            self.processor.show_given_image(self.current_expert_image, "Obraz eksperta")
+
+    def perform_kfold(self):
+        self.learnBar.setVisible(True)
+        index = self.fileBox.currentIndex()
+        self.thread = LearnThread(self, self.imageCount.value())
+        self.thread.start()
+        self.thread.finished.connect(self.end_learn)
+        # acc = Learner.get_accuracy(matrix_fold)
+        # sen = Learner.get_sensitivity(matrix_fold)
+        # spec = Learner.get_specificity(matrix_fold)
+
+    # #
+
+    def end_learn(self):
+        self.learnBar.setVisible(False)
+        self.accuracyLabel.setText(str(self.average_accuracy))
+
+
     def generate_image(self):
+        self.generateBar.setVisible(True)
+
         index = self.fileBox.currentIndex()
         self.thread = ProcessThread(self.processor,
                                     self,
@@ -42,12 +81,53 @@ class UI(QMainWindow):
                                     self.files_expert[index],
                                     self.files_mask[index])
         self.thread.start()
+        self.thread.finished.connect(self.end_generate)
+
+    def end_generate(self):
+        q_pixmap = QPixmap.fromImage(PIL.ImageQt.ImageQt(scmisc.toimage(self.current_image)))
+        container_width = self.myImage.width()
+        container_height = self.myImage.height()
+        self.myImage.setPixmap(q_pixmap.scaled(
+            container_width,
+            container_height,
+            QtCore.Qt.KeepAspectRatio))
+        self.generateBar.setValue(90)
+        q_pixmap = QPixmap.fromImage(PIL.ImageQt.ImageQt(scmisc.toimage(self.current_expert_image)))
+        container_width = self.expertImage.width()
+        container_height = self.expertImage.height()
+        self.expertImage.setPixmap(q_pixmap.scaled(
+            container_width,
+            container_height,
+            QtCore.Qt.KeepAspectRatio))
+        self.generateBar.setVisible(false)
+        self.update_matrices()
+
+    def update_matrices(self):
+        matrix = np.zeros((2, 2))
+
+        matrix += ImageProcessor.compare_images(self.current_image, self.current_expert_image)
+        #
+        acc = Learner.get_accuracy_average(matrix)
+        sen = Learner.get_sensitivity_average(matrix)
+        spec = Learner.get_specificity_average(matrix)
+        prec = Learner.get_precision_average(matrix)
+
+        self.labelTP.setText(str(matrix[0][0]))
+        self.labelFN.setText(str(matrix[0][1]))
+        self.labelFP.setText(str(matrix[1][0]))
+        self.labelTN.setText(str(matrix[1][1]))
+
+        self.labelSpec.setText(str(spec))
+        self.labelPrec.setText(str(prec))
+        self.labelSen.setText(str(sen))
+        self.labelAcc.setText(str(acc))
 
 
 class ProcessThread(QThread):
 
     def __init__(self, processor, context, image_file, expert_file, mask_file):
         QThread.__init__(self)
+        self.signal = pyqtSignal()
         self.processor = processor
         self.context = context
         self.image_file = image_file
@@ -61,13 +141,12 @@ class ProcessThread(QThread):
         self.generate_image()
 
     def generate_image(self):
-        self.context.generateBar.setVisible(True)
         self.update_progress(0)
 
         self.processor.load_image("./database/images/" + self.image_file,
                                   "./database/manual/" + self.expert_file)
-        self.update_progress(10)
-        self.processor.scale_image(1000, 1000)
+        self.update_progress(20)
+        self.processor.scale_image(self.context.heightValue.value(), self.context.widthValue.value())
 
         image = self.processor.pre_process_image()
         self.update_progress(40)
@@ -76,22 +155,72 @@ class ProcessThread(QThread):
         self.update_progress(60)
         image = ImageProcessor.to_binary_image(image, 0.5)
         self.update_progress(80)
-        q_pixmap = QPixmap.fromImage(PIL.ImageQt.ImageQt(scmisc.toimage(image)))
-        container_width = self.context.myImage.width()
-        container_height = self.context.myImage.height()
-        self.context.myImage.setPixmap(q_pixmap.scaled(
-            container_width,
-            container_height,
-            QtCore.Qt.KeepAspectRatio))
-        self.update_progress(90)
-        q_pixmap = QPixmap.fromImage(PIL.ImageQt.ImageQt(scmisc.toimage(self.processor.expert_image)))
-        container_width = self.context.expertImage.width()
-        container_height = self.context.expertImage.height()
-        self.context.expertImage.setPixmap(q_pixmap.scaled(
-            container_width,
-            container_height,
-            QtCore.Qt.KeepAspectRatio))
-        self.context.generateBar.setVisible(false)
+
+        self.context.current_image = image
+        self.context.current_expert_image = self.processor.expert_image
+
+    def update_progress(self, percentage):
+        self.context.generateBar.setValue(percentage)
+
+
+class LearnThread(QThread):
+
+    def __init__(self, context, image_amount):
+        QThread.__init__(self)
+        self.signal = pyqtSignal()
+        self.context = context
+        self.image_amount = image_amount
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        self.perform_kfold()
+
+    def perform_kfold(self):
+        data_array = None
+        class_array = None
+        feature_size = 1
+        self.context.learnBar.setValue(0)
+        for i in range(self.image_amount):
+            processor = ImageProcessor()
+            processor.load_image("./database/images/" + self.context.files[i],
+                                 "./database/manual/" + self.context.files_expert[i])
+            processor.scale_image(self.context.heightValue.value(), self.context.widthValue.value())
+
+            image = processor.pre_process_image()
+            mask = processor.get_mask("./database/mask/" + self.context.files_mask[i])
+            image = ImageProcessor.mask_image(image, mask)
+
+            image = ImageProcessor.to_binary_image(image, 0.5)
+
+            tmp_data, tmp_class, feature_size = Learner.get_learn_data(
+                Learner,
+                image,
+                processor.expert_image,
+                self.context.probCount.value(),
+                self.context.boxSize.value()
+            )
+            if data_array is None:
+                data_array = tmp_data
+                class_array = tmp_class
+            else:
+                data_array = np.append(data_array, tmp_data)
+                class_array = np.append(class_array, tmp_class)
+
+            self.context.learnBar.setValue(30 * ((i + 1) / self.image_amount))
+
+        data_array = np.array(data_array)
+        data_array = data_array.reshape(int(data_array.shape[0] / feature_size), feature_size)
+
+        average_accuracy, clf = Learner.k_fold(
+            data_array,
+            class_array,
+            self.context.kCount.value(),
+            progress_bar=self.context.learnBar
+        )
+
+        self.context.average_accuracy = average_accuracy
 
     def update_progress(self, percentage):
         self.context.generateBar.setValue(percentage)

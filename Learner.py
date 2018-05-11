@@ -9,9 +9,10 @@ from ImageProcessor import ImageProcessor
 
 
 class Learner:
+    default_box_size = 49
 
     @staticmethod
-    def get_features(img, expert_image, box_size=49):
+    def get_features(img, expert_image, box_size):
         height = img.shape[0]
         width = img.shape[1]
         box_range = int(box_size / 2)
@@ -41,12 +42,12 @@ class Learner:
         return clf
 
     @staticmethod
-    def get_learn_data(self, image, expert_image, amount):
+    def get_learn_data(self, image, expert_image, amount, box_size=49):
         data_array = []
         class_array = []
         feature_size = 1
         for i in range(amount):
-            result = self.get_features(image, expert_image)
+            result = self.get_features(image, expert_image, box_size)
             if i == 0:
                 feature_size = result[2]
             if result[0]:
@@ -60,10 +61,10 @@ class Learner:
         return data_array, class_array, feature_size
 
     @staticmethod
-    def get_predict_matrix(self, amount, image, expert_image, clf):
+    def get_predict_matrix(self, amount, image, expert_image, clf, box_size=49):
         matrix = np.zeros((2, 2))
         for i in range(amount):
-            point_moments = self.get_features(image, expert_image)
+            point_moments = self.get_features(image, expert_image, box_size)
             prediction = clf.predict(
                 np.array(point_moments[1]).reshape(1, -1)
             )
@@ -80,13 +81,16 @@ class Learner:
         return matrix
 
     @staticmethod
-    def k_fold(data_array, class_array, k=10):
+    def k_fold(data_array, class_array, k=10, progress_bar=None):
         folded = KFold(n_splits=k)
 
         folded.get_n_splits(data_array)
         clf = None
         accuracy_array = []
-        for train, test in folded.split(data_array):
+        split = folded.split(data_array)
+        iteration = k
+        i = 1
+        for train, test in split:
             X_train, X_test = data_array[train], data_array[test]
             y_train, y_test = class_array[train], class_array[test]
             if clf is None:
@@ -95,6 +99,9 @@ class Learner:
             else:
                 clf.fit(X_train, y_train)
             accuracy_array.append(clf.score(X_test, y_test))
+            if progress_bar is not None:
+                progress_bar.setValue(30 + i / iteration * 70)
+            i += 1
             # for test_set, test_result in zip(X_test, y_test):
             #
             #     prediction = clf.predict(
@@ -119,11 +126,43 @@ class Learner:
 
     @staticmethod
     def get_sensitivity(matrix):
-        return matrix[0][0] / (matrix[0][0] + matrix[1][0])
+        return matrix[0][0] / (matrix[0][0] + matrix[0][1])
 
     @staticmethod
     def get_specificity(matrix):
-        return matrix[1][1] / (matrix[1][1] + matrix[0][1])
+        return matrix[1][1] / (matrix[1][1] + matrix[1][0])
+
+    @staticmethod
+    def get_precision(matrix):
+        return matrix[0][0] / (matrix[0][0] + matrix[1][0])
+
+    @staticmethod
+    def get_accuracy_average(matrix):
+        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
+        positive = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1])
+        negative = (matrix[1][1] + matrix[0][0]) / (matrix[1][1] + matrix[1][0] + matrix[0][1] + matrix[0][0])
+        return (positive * ratio + negative) / (ratio + 1)
+
+    @staticmethod
+    def get_sensitivity_average(matrix):
+        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
+        positive = matrix[0][0] / (matrix[0][0] + matrix[0][1])
+        negative = matrix[1][1] / (matrix[1][1] + matrix[1][0])
+        return (positive * ratio + negative) / (ratio + 1)
+
+    @staticmethod
+    def get_specificity_average(matrix):
+        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
+        positive = matrix[1][1] / (matrix[1][1] + matrix[1][0])
+        negative = matrix[0][0] / (matrix[0][0] + matrix[0][1])
+        return (positive * ratio + negative) / (ratio + 1)
+
+    @staticmethod
+    def get_precision_average(matrix):
+        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
+        positive = matrix[0][0] / (matrix[0][0] + matrix[1][0])
+        negative = matrix[1][1] / (matrix[1][1] + matrix[0][1])
+        return (positive * ratio + negative) / (ratio + 1)
 
     @staticmethod
     def save_model(file_path, model):
