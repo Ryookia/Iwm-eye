@@ -90,6 +90,7 @@ class Learner:
         split = folded.split(data_array)
         iteration = k
         i = 1
+        matrix = np.zeros((2, 2))
         for train, test in split:
             X_train, X_test = data_array[train], data_array[test]
             y_train, y_test = class_array[train], class_array[test]
@@ -102,66 +103,122 @@ class Learner:
             if progress_bar is not None:
                 progress_bar.setValue(30 + i / iteration * 70)
             i += 1
-            # for test_set, test_result in zip(X_test, y_test):
-            #
-            #     prediction = clf.predict(
-            #         np.array(test_set).reshape(1, -1)
-            #     )
-            #     if prediction == test_result:
-            #         if prediction == 1:
-            #             matrix[0][0] += 1
-            #         else:
-            #             matrix[1][1] += 1
-            #     else:
-            #         if prediction == 1:
-            #             matrix[0][1] += 1
-            #         else:
-            #             matrix[1][0] += 1
+            for test_set, test_result in zip(X_test, y_test):
 
-        return sum(accuracy_array) / len(accuracy_array), clf
+                prediction = clf.predict(
+                    np.array(test_set).reshape(1, -1)
+                )
+                if prediction == test_result:
+                    if prediction == 1:
+                        matrix[0][0] += 1
+                    else:
+                        matrix[1][1] += 1
+                else:
+                    if prediction == 1:
+                        matrix[0][1] += 1
+                    else:
+                        matrix[1][0] += 1
+
+        return matrix, sum(accuracy_array) / len(accuracy_array), clf
 
     @staticmethod
     def get_accuracy(matrix):
-        return (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1])
+        divider = (matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            return 1
+        return (matrix[0][0] + matrix[1][1]) / divider
 
     @staticmethod
     def get_sensitivity(matrix):
-        return matrix[0][0] / (matrix[0][0] + matrix[0][1])
+        divider = (matrix[0][0] + matrix[0][1])
+        if divider == 0:
+            return 1
+        return matrix[0][0] / divider
 
     @staticmethod
     def get_specificity(matrix):
-        return matrix[1][1] / (matrix[1][1] + matrix[1][0])
+        divider = (matrix[1][1] + matrix[1][0])
+        if divider == 0:
+            return 1
+        return matrix[1][1] / divider
 
     @staticmethod
     def get_precision(matrix):
-        return matrix[0][0] / (matrix[0][0] + matrix[1][0])
+        divider = (matrix[0][0] + matrix[1][0])
+        if divider == 0:
+            return 1
+        return matrix[0][0] / divider
 
     @staticmethod
     def get_accuracy_average(matrix):
-        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
-        positive = (matrix[0][0] + matrix[1][1]) / (matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1])
-        negative = (matrix[1][1] + matrix[0][0]) / (matrix[1][1] + matrix[1][0] + matrix[0][1] + matrix[0][0])
+        divider = (matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            return 1
+        ratio = (matrix[0][0] + matrix[0][1]) / divider
+        divider = (matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            positive = 1
+        else:
+            positive = (matrix[0][0] + matrix[1][1]) / divider
+        divider = (matrix[1][1] + matrix[1][0] + matrix[0][1] + matrix[0][0])
+        if divider == 0:
+            negative = 1
+        else:
+            negative = (matrix[1][1] + matrix[0][0]) / divider
         return (positive * ratio + negative) / (ratio + 1)
 
     @staticmethod
     def get_sensitivity_average(matrix):
-        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
-        positive = matrix[0][0] / (matrix[0][0] + matrix[0][1])
-        negative = matrix[1][1] / (matrix[1][1] + matrix[1][0])
+        divider = (matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            return 1
+        ratio = (matrix[0][0] + matrix[0][1]) / divider
+        divider = (matrix[0][0] + matrix[0][1])
+        if divider == 0:
+            positive = 1
+        else:
+            positive = matrix[0][0] / divider
+        divider = (matrix[1][1] + matrix[1][0])
+        if divider == 0:
+            negative = 1
+        else:
+            negative = matrix[1][1] / divider
         return (positive * ratio + negative) / (ratio + 1)
 
     @staticmethod
     def get_specificity_average(matrix):
-        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
-        positive = matrix[1][1] / (matrix[1][1] + matrix[1][0])
-        negative = matrix[0][0] / (matrix[0][0] + matrix[0][1])
+        divider = (matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            return 1
+        ratio = (matrix[0][0] + matrix[0][1]) / divider
+        divider = (matrix[1][1] + matrix[1][0])
+        if divider == 0:
+            positive = 1
+        else:
+            positive = matrix[1][1] / divider
+        divider = (matrix[0][0] + matrix[0][1])
+        if divider == 0:
+            negative = 1
+        else:
+            negative = matrix[0][0] / divider
         return (positive * ratio + negative) / (ratio + 1)
 
     @staticmethod
     def get_precision_average(matrix):
-        ratio = (matrix[0][0] + matrix[0][1]) / (matrix[1][0] + matrix[1][1])
-        positive = matrix[0][0] / (matrix[0][0] + matrix[1][0])
-        negative = matrix[1][1] / (matrix[1][1] + matrix[0][1])
+        divider = (matrix[1][0] + matrix[1][1])
+        if divider == 0:
+            return 1
+        ratio = (matrix[0][0] + matrix[0][1]) / divider
+        divider = (matrix[0][0] + matrix[1][0])
+        if divider == 0:
+            positive = 1
+        else:
+            positive = matrix[0][0] / divider
+        divider = (matrix[1][1] + matrix[0][1])
+        if divider == 0:
+            negative = 1
+        else:
+            negative = matrix[1][1] / divider
         return (positive * ratio + negative) / (ratio + 1)
 
     @staticmethod

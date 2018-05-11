@@ -162,17 +162,17 @@ class ImageProcessor:
             pad_top = -h_st
             h_st = 0
         h_en = point[0] + box_range + 1
-        if h_en > height - 1:
-            pad_bottom = h_en - (height - 1)
-            h_en = height - 1
+        if h_en > height:
+            pad_bottom = h_en - height
+            h_en = height
         w_st = point[1] - box_range
         if w_st < 0:
             pad_left = -w_st
             w_st = 0
         w_en = point[1] + box_range + 1
-        if w_en > width - 1:
-            pad_right = w_en - (width - 1)
-            w_en = width - 1
+        if w_en > width:
+            pad_right = w_en - width
+            w_en = width
         cut_image = image[h_st:h_en, w_st:w_en]
         if cut_image.shape[0] != box_size or cut_image.shape[1] != box_size:
             cut_image = cv.copyMakeBorder(cut_image, pad_top, pad_bottom, pad_left, pad_right, cv.BORDER_CONSTANT)

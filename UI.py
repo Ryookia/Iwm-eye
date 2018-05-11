@@ -25,6 +25,7 @@ class UI(QMainWindow):
     listener = None
     images_array = None
     average_accuracy = 0
+    matrix = np.zeros((2, 2))
 
     current_image = None
     current_expert_image = None
@@ -44,7 +45,11 @@ class UI(QMainWindow):
         self.myImageButton.clicked.connect(self.show_my_image)
         self.expertImageButton.clicked.connect(self.show_expert_image)
         self.kfoldButton.clicked.connect(self.perform_kfold)
+        self.balancedBox.stateChanged.connect(self.matrix_change)
         self.generateBar.setVisible(False)
+
+    def matrix_change(self):
+        self.update_matrices()
 
     def show_my_image(self):
         if self.current_image is not None:
@@ -70,6 +75,7 @@ class UI(QMainWindow):
         self.learnBar.setVisible(False)
         self.accuracyLabel.setText(str(self.average_accuracy))
 
+        self.update_matrices()
 
     def generate_image(self):
         self.generateBar.setVisible(True)
@@ -99,23 +105,31 @@ class UI(QMainWindow):
             container_width,
             container_height,
             QtCore.Qt.KeepAspectRatio))
+
+        self.matrix = np.zeros((2, 2))
+        self.matrix += ImageProcessor.compare_images(self.current_image, self.current_expert_image)
         self.generateBar.setVisible(false)
         self.update_matrices()
 
     def update_matrices(self):
-        matrix = np.zeros((2, 2))
 
-        matrix += ImageProcessor.compare_images(self.current_image, self.current_expert_image)
-        #
-        acc = Learner.get_accuracy_average(matrix)
-        sen = Learner.get_sensitivity_average(matrix)
-        spec = Learner.get_specificity_average(matrix)
-        prec = Learner.get_precision_average(matrix)
+        use_balanced = self.balancedBox.isChecked()
 
-        self.labelTP.setText(str(matrix[0][0]))
-        self.labelFN.setText(str(matrix[0][1]))
-        self.labelFP.setText(str(matrix[1][0]))
-        self.labelTN.setText(str(matrix[1][1]))
+        if use_balanced:
+            acc = Learner.get_accuracy_average(self.matrix)
+            sen = Learner.get_sensitivity_average(self.matrix)
+            spec = Learner.get_specificity_average(self.matrix)
+            prec = Learner.get_precision_average(self.matrix)
+        else:
+            acc = Learner.get_accuracy(self.matrix)
+            sen = Learner.get_sensitivity(self.matrix)
+            spec = Learner.get_specificity(self.matrix)
+            prec = Learner.get_precision(self.matrix)
+
+        self.labelTP.setText(str(self.matrix[0][0]))
+        self.labelFN.setText(str(self.matrix[0][1]))
+        self.labelFP.setText(str(self.matrix[1][0]))
+        self.labelTN.setText(str(self.matrix[1][1]))
 
         self.labelSpec.setText(str(spec))
         self.labelPrec.setText(str(prec))
@@ -213,7 +227,7 @@ class LearnThread(QThread):
         data_array = np.array(data_array)
         data_array = data_array.reshape(int(data_array.shape[0] / feature_size), feature_size)
 
-        average_accuracy, clf = Learner.k_fold(
+        matrix, average_accuracy, clf = Learner.k_fold(
             data_array,
             class_array,
             self.context.kCount.value(),
@@ -221,6 +235,7 @@ class LearnThread(QThread):
         )
 
         self.context.average_accuracy = average_accuracy
+        self.context.matrix = matrix;
 
     def update_progress(self, percentage):
         self.context.generateBar.setValue(percentage)
