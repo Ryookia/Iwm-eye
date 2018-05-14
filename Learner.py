@@ -60,7 +60,7 @@ class Learner:
             for j in range(width):
                 chunk = ImageProcessor.crop_image(image, (i, j), box_size)
                 result_image[i][j] = clf.predict(chunk.flatten().reshape(1, -1))
-                if (i * width + j) / pixel_sum > last_update:
+                if (i * width + j) / pixel_sum > last_update + 0.01:
                     last_update = (i * width + j) / pixel_sum
                     print(last_update)
         return result_image

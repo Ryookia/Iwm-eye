@@ -16,7 +16,7 @@ def start_app():
     sys.exit(app.exec_())
 
 
-def learn_stuff(image_width=512, image_height=512, image_amount=5, prob_count=1000, box_size=9):
+def learn_stuff(image_width=1024, image_height=1024, image_amount=25, prob_count=500000, box_size=9):
     files = os.listdir("./database/images")
     files.sort()
     files_expert = os.listdir("./database/manual")
@@ -36,7 +36,7 @@ def learn_stuff(image_width=512, image_height=512, image_amount=5, prob_count=10
         mask = processor.get_mask("./database/mask/" + files_mask[i])
         image = ImageProcessor.mask_image(image, mask)
 
-        image = ImageProcessor.to_binary_image(image, 0.5)
+        # image = ImageProcessor.to_binary_image(image, 0.5)
 
         tmp_data, tmp_class, feature_size = Learner.get_learn_data(
             Learner,
@@ -57,7 +57,7 @@ def learn_stuff(image_width=512, image_height=512, image_amount=5, prob_count=10
     data_array = data_array.reshape(int(data_array.shape[0] / feature_size), feature_size)
 
     clf = Learner.learn_forest(data_array, class_array)
-    Learner.save_model("./classifiers/test2", clf)
+    Learner.save_model("./classifiers/mad_man_real", clf)
 
 
 if __name__ == "__main__":

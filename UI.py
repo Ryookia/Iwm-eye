@@ -79,13 +79,16 @@ class UI(QMainWindow):
         image = self.processor.pre_process_image()
         mask = self.processor.get_mask("./database/mask/" + self.files_mask[index])
         image = ImageProcessor.mask_image(image, mask)
-        image = ImageProcessor.to_binary_image(image, 0.5)
+        # image = ImageProcessor.to_binary_image(image, 0.5)
 
         self.current_image = image
         self.current_expert_image = self.processor.expert_image
         image = Learner.generate_segmentation(self.current_model, self.current_image, 9)
         ImageProcessor.show_given_image(image, "After segmentation")
         ImageProcessor.show_given_image(self.current_expert_image, "Expert Image")
+
+        self.matrix = ImageProcessor.compare_images(image, self.current_expert_image)
+        self.update_matrices()
 
     def matrix_change(self):
         self.update_matrices()

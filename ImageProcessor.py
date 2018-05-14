@@ -2,7 +2,6 @@ import math
 
 import cv2 as cv
 import numpy as np
-from skimage.filters import frangi
 
 
 class ImageProcessor:
@@ -135,9 +134,9 @@ class ImageProcessor:
         self.image = self.normalize(self.image) * 255
         self.image = self.image.astype(np.uint8)
 
-        post_image = frangi(self.image, scale_range=(2, 5), beta1=0.1, beta2=1) * 255
+        # post_image = frangi(self.image, scale_range=(2, 5), beta1=0.1, beta2=1) * 255
         # post_image = self.normalize(post_image) * 255
-
+        post_image = self.image
         return post_image
 
     def show_image(self):
