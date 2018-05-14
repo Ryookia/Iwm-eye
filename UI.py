@@ -22,10 +22,12 @@ class UI(QMainWindow):
     files = None
     files_expert = None
     files_mask = None
+    models = None
     listener = None
     images_array = None
     average_accuracy = 0
     matrix = np.zeros((2, 2))
+    current_model = None
 
     current_image = None
     current_expert_image = None
@@ -41,12 +43,49 @@ class UI(QMainWindow):
         self.files_mask = os.listdir("./database/mask")
         self.files_mask.sort()
         self.fileBox.addItems(self.files)
+
+        self.models = os.listdir("./classifiers")
+        self.modelList.addItems(self.models)
+
         self.generateButton.clicked.connect(self.generate_image)
         self.myImageButton.clicked.connect(self.show_my_image)
         self.expertImageButton.clicked.connect(self.show_expert_image)
         self.kfoldButton.clicked.connect(self.perform_kfold)
         self.balancedBox.stateChanged.connect(self.matrix_change)
+        self.loadModelButton.clicked.connect(self.load_model)
+        self.predictButton.clicked.connect(self.predict_image)
+        self.predictButton.setVisible(False)
         self.generateBar.setVisible(False)
+
+    def load_model(self):
+        index = self.modelList.currentIndex()
+        if index < 0:
+            return
+        file_path = "./classifiers/" + self.models[index]
+        print(file_path)
+        self.current_model = Learner.load_model(file_path)
+        if self.current_model is not None:
+            self.predictButton.setVisible(True)
+
+    def predict_image(self):
+        if self.current_model is None:
+            self.predictButton.setVisible(False)
+            return
+        index = self.fileBox.currentIndex()
+        self.processor.load_image("./database/images/" + self.files[index],
+                                  "./database/manual/" + self.files_expert[index])
+        self.processor.scale_image(self.heightValue.value(), self.widthValue.value())
+
+        image = self.processor.pre_process_image()
+        mask = self.processor.get_mask("./database/mask/" + self.files_mask[index])
+        image = ImageProcessor.mask_image(image, mask)
+        image = ImageProcessor.to_binary_image(image, 0.5)
+
+        self.current_image = image
+        self.current_expert_image = self.processor.expert_image
+        image = Learner.generate_segmentation(self.current_model, self.current_image, 9)
+        ImageProcessor.show_given_image(image, "After segmentation")
+        ImageProcessor.show_given_image(self.current_expert_image, "Expert Image")
 
     def matrix_change(self):
         self.update_matrices()
@@ -61,7 +100,6 @@ class UI(QMainWindow):
 
     def perform_kfold(self):
         self.learnBar.setVisible(True)
-        index = self.fileBox.currentIndex()
         self.thread = LearnThread(self, self.imageCount.value())
         self.thread.start()
         self.thread.finished.connect(self.end_learn)

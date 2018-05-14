@@ -2,6 +2,7 @@ import pickle
 import random
 
 import numpy as np
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
 from sklearn.neural_network import MLPClassifier
 
@@ -38,8 +39,31 @@ class Learner:
     def learn(data_set, class_set):
         clf = MLPClassifier(solver='lbfgs', alpha=1e-5, hidden_layer_sizes=(200, 8), random_state=1,
                             learning_rate='constant', learning_rate_init=0.001)
+
         clf.fit(data_set, class_set)
         return clf
+
+    @staticmethod
+    def learn_forest(data_set, class_set):
+        clf = RandomForestClassifier()
+        clf.fit(data_set, class_set)
+        return clf
+
+    @staticmethod
+    def generate_segmentation(clf, image, box_size):
+        height = image.shape[0]
+        width = image.shape[1]
+        pixel_sum = height * width
+        last_update = 0
+        result_image = np.zeros((height, width))
+        for i in range(height):
+            for j in range(width):
+                chunk = ImageProcessor.crop_image(image, (i, j), box_size)
+                result_image[i][j] = clf.predict(chunk.flatten().reshape(1, -1))
+                if (i * width + j) / pixel_sum > last_update:
+                    last_update = (i * width + j) / pixel_sum
+                    print(last_update)
+        return result_image
 
     @staticmethod
     def get_learn_data(self, image, expert_image, amount, box_size=49):
