@@ -72,23 +72,35 @@ class UI(QMainWindow):
             self.predictButton.setVisible(False)
             return
         index = self.fileBox.currentIndex()
-        self.processor.load_image("./database/images/" + self.files[index],
-                                  "./database/manual/" + self.files_expert[index])
-        self.processor.scale_image(self.heightValue.value(), self.widthValue.value())
 
-        image = self.processor.pre_process_image()
-        mask = self.processor.get_mask("./database/mask/" + self.files_mask[index])
-        image = ImageProcessor.mask_image(image, mask)
-        # image = ImageProcessor.to_binary_image(image, 0.5)
+        self.generateBar.setVisible(True)
 
-        self.current_image = image
-        self.current_expert_image = self.processor.expert_image
-        image = Learner.generate_segmentation(self.current_model, self.current_image, 9)
-        ImageProcessor.show_given_image(image, "After segmentation")
-        ImageProcessor.show_given_image(self.current_expert_image, "Expert Image")
+        self.thread = PredictorThread(
+            self.processor,
+            self,
+            self.files[index],
+            self.files_expert[index],
+            self.files_mask[index])
+        self.thread.start()
+        self.thread.finished.connect(self.end_generate)
 
-        self.matrix = ImageProcessor.compare_images(image, self.current_expert_image)
-        self.update_matrices()
+        # self.processor.load_image("./database/images/" + self.files[index],
+        #                           "./database/manual/" + self.files_expert[index])
+        # self.processor.scale_image(self.heightValue.value(), self.widthValue.value())
+        #
+        # image = self.processor.pre_process_image()
+        # mask = self.processor.get_mask("./database/mask/" + self.files_mask[index])
+        # image = ImageProcessor.mask_image(image, mask)
+        # # image = ImageProcessor.to_binary_image(image, 0.5)
+        #
+        # self.current_image = image
+        # self.current_expert_image = self.processor.expert_image
+        # image = Learner.generate_segmentation(self.current_model, self.current_image)
+        # ImageProcessor.show_given_image(image, "After segmentation")
+        # ImageProcessor.show_given_image(self.current_expert_image, "Expert Image")
+        #
+        # self.matrix = ImageProcessor.compare_images(image, self.current_expert_image)
+        # self.update_matrices()
 
     def matrix_change(self):
         self.update_matrices()
@@ -176,6 +188,8 @@ class UI(QMainWindow):
         self.labelPrec.setText(str(prec))
         self.labelSen.setText(str(sen))
         self.labelAcc.setText(str(acc))
+
+        self.avgAcc.setText(str(Learner.get_final_accuracy(self.matrix)) + "%")
 
 
 class ProcessThread(QThread):
@@ -277,6 +291,46 @@ class LearnThread(QThread):
 
         self.context.average_accuracy = average_accuracy
         self.context.matrix = matrix;
+
+    def update_progress(self, percentage):
+        self.context.generateBar.setValue(percentage)
+
+
+class PredictorThread(QThread):
+
+    def __init__(self, processor, context, image_file, expert_file, mask_file):
+        QThread.__init__(self)
+        self.signal = pyqtSignal()
+        self.processor = processor
+        self.context = context
+        self.image_file = image_file
+        self.expert_file = expert_file
+        self.mask_file = mask_file
+
+    def __del__(self):
+        self.wait()
+
+    def run(self):
+        self.predict_image()
+
+    def predict_image(self):
+        self.update_progress(0)
+
+        self.processor.load_image("./database/images/" + self.image_file,
+                                  "./database/manual/" + self.expert_file)
+        self.processor.scale_image(self.context.heightValue.value(), self.context.widthValue.value())
+        self.update_progress(10)
+        image = self.processor.pre_process_image()
+        mask = self.processor.get_mask("./database/mask/" + self.mask_file)
+        image = ImageProcessor.mask_image(image, mask)
+        self.update_progress(20)
+        # image = ImageProcessor.to_binary_image(image, 0.5)
+
+        image = Learner.generate_segmentation(self.context.current_model, image, self.update_progress)
+        self.context.current_image = image
+        self.context.current_expert_image = self.processor.expert_image
+
+        self.update_progress(90)
 
     def update_progress(self, percentage):
         self.context.generateBar.setValue(percentage)

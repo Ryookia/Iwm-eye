@@ -1,6 +1,8 @@
+import math
 import pickle
 import random
 
+import cv2 as cv
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import KFold
@@ -11,6 +13,8 @@ from ImageProcessor import ImageProcessor
 
 class Learner:
     default_box_size = 49
+    learn_size = 1024
+    learn_box_size = 9
 
     @staticmethod
     def get_features(img, expert_image, box_size):
@@ -50,19 +54,22 @@ class Learner:
         return clf
 
     @staticmethod
-    def generate_segmentation(clf, image, box_size):
+    def generate_segmentation(clf, image, update_progress):
         height = image.shape[0]
         width = image.shape[1]
         pixel_sum = height * width
         last_update = 0
         result_image = np.zeros((height, width))
+        cut_size = int(math.ceil(max(height, width) / Learner.learn_size * Learner.learn_box_size))
         for i in range(height):
             for j in range(width):
-                chunk = ImageProcessor.crop_image(image, (i, j), box_size)
+                chunk = ImageProcessor.crop_image(image, (i, j), cut_size)
+                if cut_size != Learner.learn_box_size:
+                    chunk = cv.resize(chunk, (Learner.learn_box_size, Learner.learn_box_size))
                 result_image[i][j] = clf.predict(chunk.flatten().reshape(1, -1))
                 if (i * width + j) / pixel_sum > last_update + 0.01:
                     last_update = (i * width + j) / pixel_sum
-                    print(last_update)
+                    update_progress(30 + last_update * 50)
         return result_image
 
     @staticmethod
@@ -244,6 +251,14 @@ class Learner:
         else:
             negative = matrix[1][1] / divider
         return (positive * ratio + negative) / (ratio + 1)
+
+    @staticmethod
+    def get_final_accuracy(matrix):
+        sample_sum = matrix[0][0] + matrix[0][1] + matrix[1][0] + matrix[1][1]
+        positive_ratio = (matrix[0][0] + matrix[0][1]) / sample_sum
+        negative_ratio = (matrix[1][0] + matrix[1][1]) / sample_sum
+        return matrix[0][0] / (matrix[0][0] + matrix[0][1]) * positive_ratio + matrix[1][1] / (
+                matrix[1][0] + matrix[1][1]) * negative_ratio
 
     @staticmethod
     def save_model(file_path, model):
